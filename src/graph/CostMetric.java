@@ -1,10 +1,11 @@
 package src.graph;
 
 public enum CostMetric {
-    DISTANCE("Distance", "m"),
-    GRADE("Grade", "%"),
-    TIME("Travel Time", "s"),
-    FUEL("Fuel Used", "mL");
+    DISTANCE        ("Distance",         "m"),
+    GRADE           ("Grade",            "%"),
+    TIME            ("Travel Time",      "s"),
+    FUEL            ("Fuel Used",        "mL"),
+    FOREST_COVERAGE ("Forest Coverage",  "");   // fraction in [0.0, 1.0]
 
     private final String displayName;
     private final String unit;
@@ -14,11 +15,6 @@ public enum CostMetric {
         this.unit = unit;
     }
 
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public String getUnit() {
-        return unit;
-    }
+    public String getDisplayName() { return displayName; }
+    public String getUnit()        { return unit; }
 }

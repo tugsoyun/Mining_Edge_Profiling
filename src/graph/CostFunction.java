@@ -13,6 +13,9 @@ import src.model.Edge;
  *   // Single metric
  *   CostFunction byFuel = CostFunction.byFuel();
  *
+ *   // Maximise forest coverage (Dijkstra minimises, so cost = 1 - coverage)
+ *   CostFunction byForest = CostFunction.byForestCoverage();
+ *
  *   // Weighted blend
  *   CostFunction balanced = CostFunction.weighted(0.5, 0.5);
  *
@@ -33,7 +36,6 @@ public interface CostFunction {
      */
     double cost(Edge edge);
 
-
     // -------------------------------------------------------------------------
     // Named factories for standard metrics
     // -------------------------------------------------------------------------
@@ -51,6 +53,21 @@ public interface CostFunction {
     /** Minimise total 3-D distance (metres). */
     static CostFunction byDistance() {
         return edge -> edge.getMetric(CostMetric.DISTANCE);
+    }
+
+    /**
+     * Maximise forest coverage along the path.
+     *
+     * <p>Dijkstra minimises cost, so we invert the coverage fraction:
+     * cost = 1.0 - coverage, where coverage is in [0.0, 1.0].
+     * A fully forested edge costs 0.0; bare ground costs 1.0.</p>
+     *
+     * <p>Requires {@link CostMetric#FOREST_COVERAGE} to be populated on
+     * each edge, which happens automatically if you pass a
+     * {@link src.graph.ForestClassifier} to {@link src.model.Edge}.</p>
+     */
+    static CostFunction byForestCoverage() {
+        return edge -> 1.0 - edge.getMetric(CostMetric.FOREST_COVERAGE);
     }
 
     /**
@@ -76,11 +93,8 @@ public interface CostFunction {
     /**
      * Penalises steep grades on top of a base metric.
      *
-     * <p>Useful when you want shortest-time or least-fuel routes that
-     * also avoid severe inclines (e.g. for vehicle stability or safety).</p>
-     *
-     * @param base          the primary cost function
-     * @param gradePenalty  extra cost multiplied by |grade %| per edge
+     * @param base         the primary cost function
+     * @param gradePenalty extra cost multiplied by |grade %| per edge
      */
     static CostFunction withGradePenalty(CostFunction base, double gradePenalty) {
         if (gradePenalty < 0) {
@@ -90,5 +104,34 @@ public interface CostFunction {
         return edge ->
             base.cost(edge)
           + gradePenalty * Math.abs(edge.getMetric(CostMetric.GRADE));
+    }
+
+    /**
+     * Blends any primary cost function with a forest coverage bonus.
+     *
+     * <p>Useful when you want fast/efficient routes that also prefer
+     * forest coverage — e.g. for shade, dust suppression, or ecological
+     * corridor requirements.</p>
+     *
+     * <pre>
+     *   // 70% time, 30% forest preference
+     *   CostFunction.withForestBonus(CostFunction.byTime(), 0.7, 0.3);
+     * </pre>
+     *
+     * @param base           primary cost function (already non-negative)
+     * @param baseWeight     weight applied to the primary cost
+     * @param coverageWeight weight applied to (1 - forest_coverage)
+     */
+    static CostFunction withForestBonus(
+            CostFunction base,
+            double baseWeight,
+            double coverageWeight) {
+        if (baseWeight < 0 || coverageWeight < 0) {
+            throw new IllegalArgumentException(
+                "Weights must be non-negative for Dijkstra to be correct.");
+        }
+        return edge ->
+            baseWeight     * base.cost(edge)
+          + coverageWeight * (1.0 - edge.getMetric(CostMetric.FOREST_COVERAGE));
     }
 }

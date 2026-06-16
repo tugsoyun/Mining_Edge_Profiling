@@ -61,12 +61,19 @@ public class PathExporter {
 
         out.println("end_header");
 
+        int random_r = (int)(Math.random() * 256);
+        int random_g = (int)(Math.random() * 256);
+        int random_b = (int)(Math.random() * 256);
+
         for (Vertex v : path) {
             out.printf(
-                "%.6f %.6f %.6f 111 255 111%n",
+                "%.6f %.6f %.6f %d %d %d%n",
                 v.x,
                 v.y,
-                v.z
+                v.z,
+                random_r,
+                random_g,
+                random_b
             );
         }
 
