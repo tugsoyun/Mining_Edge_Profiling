@@ -1,0 +1,44 @@
+System.out.println("\nSample edges:");
+        for (int i = 0; i < Math.min(10, edges.size()); i++) {
+            Edge e = edges.get(i);
+
+            System.out.println(e.info());
+        }
+
+        System.out.println("\n=== MANUAL TESTS ===");
+
+        // flat paved road
+        Vertex a = new Vertex(0, 0, 0, 0);
+        Vertex b = new Vertex(1, 100, 0, 0);
+
+        Edge flat = new Edge(a, b, "paved");
+
+        System.out.println("Flat paved road:");
+        System.out.println(flat.info());
+
+        // 10% uphill gravel
+        Vertex c = new Vertex(2, 0, 0, 0);
+        Vertex d = new Vertex(3, 100, 0, 10);
+
+        Edge uphill = new Edge(c, d, "gravel");
+
+        System.out.println("\n10% uphill gravel:");
+        System.out.println(uphill.info());
+
+        // steep sand road
+        Vertex e1 = new Vertex(4, 0, 0, 0);
+        Vertex e2 = new Vertex(5, 100, 0, 20);
+
+        Edge sand = new Edge(e1, e2, "sand");
+
+        System.out.println("\n20% uphill sand:");
+        System.out.println(sand.info());
+
+        // downhill dirt
+        Vertex f1 = new Vertex(6, 0, 0, 20);
+        Vertex f2 = new Vertex(7, 100, 0, 0);
+
+        Edge downhill = new Edge(f1, f2, "dirt");
+
+        System.out.println("\n20% downhill dirt:");
+        System.out.println(downhill.info());
