@@ -11,23 +11,41 @@ import src.model.*;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        String fileName = "data/meshes/forest.ply";
-        int start = 4385;
-        int goal = 10000;
+        String fileName = "data/meshes/valley_big_sample.ply";
+        int start = 1221;
+        int goal = 122221;
 
         MeshData mesh = PLYParser.load(fileName);
 
         ForestClassifier fc = new ForestClassifier(mesh);  // prints classification summary
         Graph graph = new Graph(mesh, fc);
 
-        // Maximise forest coverage
-        List<Vertex> path = Dijkstra.findPath(graph, start, goal,
-            CostFunction.byForestCoverage());
-        PathExporter.exportPathPLY(path, "data/paths/forest_path_with_tree_coverage.ply");
+        ReportGenerator report = new ReportGenerator(graph);
 
-        //Or blend: 60% time, 40% forest preference
-        List<Vertex> path2 = Dijkstra.findPath(graph, start, goal,
-            CostFunction.withForestBonus(CostFunction.byTime(), 0.4, 0.6));
-        PathExporter.exportPathPLY(path2, "data/paths/forest_path_blended.ply");
+        List<Vertex> timePath = Dijkstra.findPath(graph, start, goal, CostFunction.byTime());
+        List<Vertex> fuelPath = Dijkstra.findPath(graph, start, goal, CostFunction.byFuel());
+        List<Vertex> forestPath = Dijkstra.findPath(graph, start, goal, CostFunction.byForestCoverage());
+        List<Vertex> blendedPath = Dijkstra.findPath(graph, start, goal,
+            CostFunction.withForestBonus(CostFunction.byTime(), 0.5, 0.5));
+
+        PathExporter.exportPathPLY(timePath, "data/paths/valley_time_path.ply");
+        PathExporter.exportPathPLY(fuelPath, "data/paths/valley_fuel_path.ply");
+        PathExporter.exportPathPLY(forestPath, "data/paths/valley_forest_path.ply");
+        PathExporter.exportPathPLY(blendedPath, "data/paths/valley_blended_path.ply");
+
+
+        report.addPath("Fastest",       timePath,   CostFunction.byTime());
+        report.addPath("Blended",    blendedPath,   CostFunction.byFuel());
+        report.addPath("Max Forest",    forestPath, CostFunction.byForestCoverage());
+
+        report.write("data/reports/valley_report.txt");
+
+        // // Maximise forest coverage
+        // List<Vertex> path = Dijkstra.findPath(graph, start, goal,
+        //     CostFunction.byForestCoverage());
+        // PathExporter.exportPathPLY(path, "data/paths/valley_path_with_tree_coverage.ply");
+
+        // //Or blend: 60% time, 40% forest preference
+        
     }
 }
