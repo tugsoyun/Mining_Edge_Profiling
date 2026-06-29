@@ -25,10 +25,10 @@ import java.util.Map;
 
 public class PLYParser {
     // Canonical property names we care about
-    private static final String PROP_X               = "x";
-    private static final String PROP_Y               = "y";
-    private static final String PROP_Z               = "z";
-    private static final String PROP_NUM_RETURNS      = "scalar_Number_Of_Returns";
+    private static final String PROP_X           = "x";
+    private static final String PROP_Y           = "y";
+    private static final String PROP_Z           = "z";
+    private static final String PROP_NUM_RETURNS = "scalar_Number_Of_Returns";
 
     public static MeshData load(String filename) throws IOException {
         BufferedReader br = new BufferedReader(new FileReader(filename));
@@ -93,6 +93,11 @@ public class PLYParser {
         List<Vertex> vertices   = new ArrayList<>(vertexCount);
         float[] numberOfReturns = hasReturnData ? new float[vertexCount] : null;
 
+        // Coordinate range tracking
+        double xMin = Double.MAX_VALUE, xMax = -Double.MAX_VALUE;
+        double yMin = Double.MAX_VALUE, yMax = -Double.MAX_VALUE;
+        double zMin = Double.MAX_VALUE, zMax = -Double.MAX_VALUE;
+
         System.out.println("Reading " + vertexCount + " vertices...");
 
         for (int i = 0; i < vertexCount; i++) {
@@ -108,7 +113,20 @@ public class PLYParser {
             if (hasReturnData) {
                 numberOfReturns[i] = Float.parseFloat(parts[numReturnsIdx]);
             }
+
+            // Update ranges
+            if (x < xMin) xMin = x;
+            if (x > xMax) xMax = x;
+            if (y < yMin) yMin = y;
+            if (y > yMax) yMax = y;
+            if (z < zMin) zMin = z;
+            if (z > zMax) zMax = z;
         }
+
+        System.out.println("Coordinate ranges:");
+        System.out.printf("  X : [%.4f, %.4f]  (span: %.4f m)%n", xMin, xMax, xMax - xMin);
+        System.out.printf("  Y : [%.4f, %.4f]  (span: %.4f m)%n", yMin, yMax, yMax - yMin);
+        System.out.printf("  Z : [%.4f, %.4f]  (span: %.4f m)%n", zMin, zMax, zMax - zMin);
 
         //-----------------------------------
         // Read faces
