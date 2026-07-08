@@ -74,11 +74,18 @@ public class Vehicle {
                     0.0015 * totalResistance * totalResistance);
 
         } else {
+            // Mirrors the uphill curve's dependence on resistance so the
+            // fuel rate is continuous at grade = 0, instead of jumping to
+            // a formula that ignores grade entirely.
             fuelRate =
                     BASE_FUELRATE *
                     (0.65 +
-                    0.01 * rollingResistance);
+                    0.01 * rollingResistance +
+                    0.005 * Math.abs(grade));
         }
+
+        // Guarantee a sane positive floor regardless of inputs.
+        fuelRate = Math.max(fuelRate, 0.05 * BASE_FUELRATE);
 
         //----------------------------------------------------
         // TIME

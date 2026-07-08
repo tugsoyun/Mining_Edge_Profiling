@@ -1,5 +1,10 @@
 package src;
 
+import src.terrain.GroundFilter;
+import src.terrain.MeshGenerator;
+import src.terrain.PointCloudLoader;
+import src.terrain.SessionState;
+import src.terrain.Subsampler;
 import src.graph.CostFunction;
 import src.graph.CostMetric;
 import src.graph.Dijkstra;
@@ -24,7 +29,7 @@ import java.util.Scanner;
  *
  * Flow:
  *   1. Prompt for a PLY mesh filename (resolved under data/meshes/).
- *   2. Parse the file and build the graph.
+ *   2. Parse the file and build the graph; optionally export the map.
  *   3. Select start and end vertices (by ID, approximate XY, or XY range).
  *   4. Choose a cost metric (or weighted combination) and run Dijkstra.
  *   5. Optionally export the path as a PLY file.
@@ -42,8 +47,8 @@ public class Main {
         Scanner sc = new Scanner(System.in);
         printBanner();
 
-        // ── 1. Load mesh ──────────────────────────────────────────────────
-        MeshData mesh = loadMesh(sc);
+        // ── 1. Source selection: LAS pipeline or existing PLY ─────────────
+        MeshData mesh = selectMeshSource(sc);
         if (mesh == null) { sc.close(); return; }
 
         // ── 2. Build graph ────────────────────────────────────────────────
@@ -130,7 +135,100 @@ public class Main {
     }
 
     // =========================================================================
-    // Phase 1 — Mesh loading
+    // Phase 1 — Mesh source selection
+    // =========================================================================
+
+    /**
+     * Asks the user whether to run the full LAS → subsample → ground filter
+     * → mesh pipeline, or to load an existing PLY mesh directly.
+     */
+    private static MeshData selectMeshSource(Scanner sc) {
+        System.out.println("\n─────────────────────────────────────");
+        System.out.println(" MESH SOURCE");
+        System.out.println("─────────────────────────────────────");
+        System.out.println("  1) Process a LAS/LAZ file into a new mesh");
+        System.out.println("  2) Load an existing PLY mesh");
+        System.out.println("  q) Quit");
+        System.out.print("Choice: ");
+        String choice = sc.nextLine().trim();
+
+        switch (choice.toLowerCase()) {
+            case "1": return runLASPipeline(sc);
+            case "2": return loadMesh(sc);
+            case "q": case "quit": case "exit": return null;
+            default:
+                System.out.println("  Please enter 1, 2, or q.");
+                return selectMeshSource(sc);
+        }
+    }
+
+    // ── LAS pipeline: terrain preprocessing menu ────────────────────────────────
+
+    /**
+     * Non-linear terrain preprocessing menu.
+     *
+     * Each step is independent — the user can jump to any step, re-run
+     * individual stages with different parameters, or skip stages entirely.
+     * Results are held in a {@link SessionState} and passed between steps.
+     * The menu loops until the user chooses to proceed to pathfinding or quit.
+     */
+    private static MeshData runLASPipeline(Scanner sc) {
+        SessionState state = new SessionState();
+
+        while (true) {
+            System.out.println("\n═════════════════════════════════════");
+            System.out.println(" TERRAIN PREPROCESSING");
+            System.out.println("═════════════════════════════════════");
+            System.out.println(state.summary());
+            System.out.println("─────────────────────────────────────");
+            System.out.println("  1) Load point cloud   (LAS / LAZ / XYZ)");
+            System.out.println("  2) Ground filter      (CSF — separate ground from vegetation)");
+            System.out.println("  3) Subsample          (reduce point count for faster meshing)");
+            System.out.println("  4) Generate mesh      (Delaunay triangulation → PLY)");
+            System.out.println("  5) Use generated mesh → continue to pathfinding");
+            System.out.println("  q) Quit");
+            System.out.println("─────────────────────────────────────");
+            System.out.print("Choice: ");
+            String choice = sc.nextLine().trim().toLowerCase();
+
+            switch (choice) {
+                case "1":
+                    PointCloudLoader.run(sc, state);
+                    break;
+                case "2":
+                    GroundFilter.run(sc, state);
+                    break;
+                case "3":
+                    Subsampler.run(sc, state);
+                    break;
+                case "4":
+                    MeshGenerator.run(sc, state);
+                    break;
+                case "5":
+                    if (state.lastMeshPath == null) {
+                        System.out.println("  No mesh generated yet. Run step 4 first.");
+                        break;
+                    }
+                    System.out.println("\nLoading generated mesh...");
+                    try {
+                        MeshData mesh = PLYParser.load(state.lastMeshPath);
+                        System.out.printf("  Loaded %d vertices, %d faces.%n",
+                                mesh.getVertices().size(), mesh.getFaces().size());
+                        return mesh;
+                    } catch (Exception e) {
+                        System.out.printf("  Failed to load mesh: %s%n", e.getMessage());
+                    }
+                    break;
+                case "q": case "quit": case "exit":
+                    return null;
+                default:
+                    System.out.println("  Enter 1-5 or q.");
+            }
+        }
+    }
+
+    // =========================================================================
+    // Phase 1b — Load existing mesh
     // =========================================================================
 
     private static MeshData loadMesh(Scanner sc) {
@@ -163,10 +261,6 @@ public class Main {
             }
         }
     }
-
-    // =========================================================================
-    // Phase 2 — Vertex selection
-    // =========================================================================
 
     /**
      * Offers three selection modes for one vertex (start or end).
@@ -455,6 +549,19 @@ public class Main {
         } catch (NumberFormatException e) {
             System.out.println("  ✗ Enter a number (e.g. 123.45).");
             return null;
+        }
+    }
+
+    /** Like promptDouble but returns defaultValue when the user presses Enter. */
+    private static double promptDoubleWithDefault(Scanner sc, String prompt, double defaultValue) {
+        System.out.print(prompt);
+        String input = sc.nextLine().trim();
+        if (input.isEmpty()) return defaultValue;
+        try {
+            return Double.parseDouble(input);
+        } catch (NumberFormatException e) {
+            System.out.printf("  ✗ Invalid input — using default (%.2f).%n", defaultValue);
+            return defaultValue;
         }
     }
 
